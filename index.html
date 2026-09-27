@@ -444,13 +444,14 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
       <input type="text" id="f-name" placeholder="ex: Pétunia, Dahlia…" oninput="liveUpdate()">
     </div>
     <div class="fg"><label>Type</label>
-      <select id="f-type" onchange="liveUpdate()">
+      <input type="text" id="f-type" list="type-list" placeholder="ex: Vivace, Fraisier…" oninput="liveUpdate()">
+      <datalist id="type-list">
         <option>Annuelle</option><option>Vivace</option><option>Bulbeuse</option>
         <option>Bisannuelle</option><option>Annuelle grimpante</option>
         <option>Annuelle / Vivace</option><option>Vivace / Arbustif</option>
         <option>Annuelle / Intérieur</option><option>Mélange</option>
         <option>Aromate</option><option>Légume</option><option>Arbuste</option><option>Rosier</option>
-      </select>
+      </datalist>
     </div>
     <div class="sec">📋 Informations</div>
     <div id="fields-container"></div>
@@ -997,6 +998,7 @@ async function init() {
   buildThemeGrid();
   liveUpdate();
   await updateLibCount();
+  idbGetAll().then(refreshTypeOptions);
   checkBackupReminder();
   // Wire print scope radios
   document.querySelectorAll('input[name="pscope"]').forEach(r => r.addEventListener('change', () => {
@@ -1706,6 +1708,30 @@ function deleteLabel(id) {
   });
 }
 
+// ═══════════════ TYPES — présets + types personnalisés déjà utilisés ═══════════════
+const TYPE_PRESETS = ['Annuelle','Vivace','Bulbeuse','Bisannuelle','Annuelle grimpante',
+  'Annuelle / Vivace','Vivace / Arbustif','Annuelle / Intérieur','Mélange','Aromate',
+  'Légume','Arbuste','Rosier'];
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function refreshTypeOptions(labels) {
+  const used = (labels||[]).map(function(l){ return (l.type||'').trim(); }).filter(Boolean);
+  const extra = Array.from(new Set(used))
+    .filter(function(t){ return TYPE_PRESETS.indexOf(t) === -1; })
+    .sort(function(a,b){ return a.localeCompare(b,'fr'); });
+  const all = TYPE_PRESETS.concat(extra);
+  const optsHTML = all.map(function(t){ return '<option>' + esc(t) + '</option>'; }).join('');
+
+  const dl = getElementById('type-list');
+  if (dl) dl.innerHTML = optsHTML;
+
+  const sel = getElementById('lib-filter-type');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Tous les types</option>' + optsHTML;
+    sel.value = (all.indexOf(cur) > -1) ? cur : '';
+  }
+}
+
 // ═══════════════ LIBRARY — tri, filtres, duplication ═══════════════
 function renderLib() {
   const search  = (getElementById('lib-search')||{value:''}).value.toLowerCase();
@@ -1713,6 +1739,7 @@ function renderLib() {
   const sortV   = (getElementById('lib-sort')||{value:'name-az'}).value;
 
   idbGetAll().then(function(all) {
+    refreshTypeOptions(all);
     let labels = all;
     // Filtre recherche
     if (search) labels = labels.filter(function(l){ return (l.name||'').toLowerCase().indexOf(search) > -1; });
