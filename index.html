@@ -942,6 +942,35 @@ async function idbClear() {
   } catch(e) { console.warn('Clear sync error:', e); }
 }
 
+// ── Compression automatique des images à l'upload ──
+// Évite que la bibliothèque regrossisse : les logos gardent leur résolution native
+// (largement suffisante pour l'impression A5, voir plus bas) mais sont ré-encodés
+// proprement ; les photos sont plafonnées à 1800px de côté (~300dpi sur 148mm de large).
+// Le PNG est préservé tel quel (transparence), seul le JPEG est recompressé.
+function _loadImageEl(uri) {
+  return new Promise(function(resolve, reject) {
+    const img = new Image();
+    img.onload = function() { resolve(img); };
+    img.onerror = reject;
+    img.src = uri;
+  });
+}
+async function compressImage(dataUri, maxDim, quality) {
+  if (!dataUri || typeof dataUri !== 'string' || dataUri.indexOf('data:image') !== 0) return dataUri;
+  try {
+    const isPng = dataUri.slice(0, 25).indexOf('image/png') > -1;
+    const img = await _loadImageEl(dataUri);
+    const scale = maxDim ? Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight)) : 1;
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    const out = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality);
+    return (out.length < dataUri.length) ? out : dataUri;
+  } catch(e) { console.warn('compressImage failed:', e); return dataUri; }
+}
+
 // Settings + custom icons restent en localStorage (données légères, sans photos)
 // et sont aussi synchronisés sur Supabase (table app_settings) pour suivre
 // le compte plutôt que le seul navigateur.
@@ -1460,8 +1489,8 @@ function dropPhoto(e) {
 }
 function readPhotoFile(file) {
   const r = new FileReader();
-  r.onload = function(e) {
-    curPhoto = e.target.result;
+  r.onload = async function(e) {
+    curPhoto = await compressImage(e.target.result, 1800, 0.90);
     const d = getElementById('photo-drop');
     d.classList.add('has');
     d.innerHTML = '<input type="file" id="photo-file" accept="image/*" onchange="loadPhoto(this)">'
@@ -1488,7 +1517,7 @@ function removePhoto(e) {
 // ═══════════════ LOGOS ═══════════════
 const DEFAULT_LOGO = '<svg viewBox="0 0 60 60"><path d="M14 36Q12 52 18 54L42 54Q48 52 46 36Z" fill="#7ab648"/><path d="M11 32Q11 36 14 36L46 36Q49 36 49 32Q49 28 30 28Q11 28 11 32Z" fill="#7ab648"/><line x1="30" y1="28" x2="30" y2="18" stroke="#7ab648" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="13" r="4" fill="#f5a623"/><ellipse cx="23" cy="13" rx="4" ry="2.5" fill="#f5a623" transform="rotate(-30 23 13)"/><ellipse cx="37" cy="13" rx="4" ry="2.5" fill="#f5a623" transform="rotate(30 37 13)"/><circle cx="30" cy="13" r="3" fill="#e8890a"/></svg>';
 
-function loadLogoMain(input) { if(input.files[0]) { const r=new FileReader(); r.onload=function(e){ curLogoMain=e.target.result; showLogoMainPreview(e.target.result); saveSettings(); liveUpdate(); }; r.readAsDataURL(input.files[0]); } }
+function loadLogoMain(input) { if(input.files[0]) { const r=new FileReader(); r.onload=async function(e){ curLogoMain=await compressImage(e.target.result, null, 0.92); showLogoMainPreview(curLogoMain); saveSettings(); liveUpdate(); }; r.readAsDataURL(input.files[0]); } }
 function showLogoMainPreview(src) {
   const z = getElementById('logo-main-z'); z.classList.add('has');
   z.innerHTML = '<input type="file" id="logo-main-f" accept="image/*" onchange="loadLogoMain(this)"><img src="' + src + '" alt="logo"><button class="up-rm" onclick="resetLogoMain()">✕</button>';
@@ -1499,7 +1528,7 @@ function resetLogoMain() {
   z.innerHTML = '<input type="file" id="logo-main-f" accept="image/*" onchange="loadLogoMain(this)"><div><div style="font-size:1.6rem">🏢</div><div style="font-size:.74rem;font-weight:700;color:var(--g)">Logo Horticulture Gaessler</div><div style="font-size:.63rem;color:var(--muted)">Cliquer pour changer</div></div>';
   saveSettings(); liveUpdate();
 }
-function loadLogoFPA(input) { if(input.files[0]) { const r=new FileReader(); r.onload=function(e){ curLogoFPA=e.target.result; showLogoFPAPreview(e.target.result); saveSettings(); liveUpdate(); }; r.readAsDataURL(input.files[0]); } }
+function loadLogoFPA(input) { if(input.files[0]) { const r=new FileReader(); r.onload=async function(e){ curLogoFPA=await compressImage(e.target.result, null, 0.92); showLogoFPAPreview(curLogoFPA); saveSettings(); liveUpdate(); }; r.readAsDataURL(input.files[0]); } }
 function showLogoFPAPreview(src) {
   const z = getElementById('logo-fpa-z'); z.classList.add('has');
   z.innerHTML = '<input type="file" id="logo-fpa-f" accept="image/*" onchange="loadLogoFPA(this)"><img src="' + src + '" alt="FPA"><button class="up-rm" onclick="resetLogoFPA()">✕</button>';
@@ -1603,7 +1632,7 @@ function buildLabel(d) {
 function getFormData() {
   const d = {
     name:      (getElementById('f-name')||{value:''}).value.trim(),
-    type:      (getElementById('f-type')||{value:'Annuelle'}).value,
+    type:      (getElementById('f-type')||{value:'Annuelle'}).value.trim().replace(/\s+/g,' '),
     photo:     curPhoto,
     photoZ:    (getElementById('p-z')||{value:100}).value,
     photoX:    (getElementById('p-x')||{value:50}).value,
@@ -1717,10 +1746,20 @@ const TYPE_PRESETS = ['Annuelle','Vivace','Bulbeuse','Bisannuelle','Annuelle gri
   'Légume','Arbuste','Rosier'];
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function refreshTypeOptions(labels) {
-  const used = (labels||[]).map(function(l){ return (l.type||'').trim(); }).filter(Boolean);
-  const extra = Array.from(new Set(used))
-    .filter(function(t){ return TYPE_PRESETS.indexOf(t) === -1; })
-    .sort(function(a,b){ return a.localeCompare(b,'fr'); });
+  const presetsLower = TYPE_PRESETS.map(function(t){ return t.toLowerCase(); });
+  const used = (labels||[]).map(function(l){ return (l.type||'').trim().replace(/\s+/g,' '); }).filter(Boolean);
+  // Dédoublonnage insensible à la casse (ex: "Fraisier" et "fraisier" ne comptent
+  // que pour un seul type) — on garde la première graphie rencontrée.
+  const seenLower = {};
+  const extra = [];
+  used.forEach(function(t) {
+    const key = t.toLowerCase();
+    if (presetsLower.indexOf(key) > -1) return;
+    if (seenLower[key]) return;
+    seenLower[key] = true;
+    extra.push(t);
+  });
+  extra.sort(function(a,b){ return a.localeCompare(b,'fr'); });
   const all = TYPE_PRESETS.concat(extra);
   const optsHTML = all.map(function(t){ return '<option>' + esc(t) + '</option>'; }).join('');
 
