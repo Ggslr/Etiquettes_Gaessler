@@ -2,9 +2,43 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Étiquettes Pro — Horticulture Gaessler</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Étiquettes — Horticulture Gaessler</title>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Theme & App -->
+<meta name="theme-color" content="#5A7A3A">
+<meta name="application-name" content="Étiquettes Gaessler">
+<meta name="description" content="Créateur d'étiquettes professionnelles pour plantes">
+
+<!-- iOS / Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Étiquettes">
+<link rel="apple-touch-icon" href="icons/icon-180x180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167x167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180x180.png">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+<link rel="shortcut icon" href="favicon.ico">
+
+<!-- Windows / Edge -->
+<meta name="msapplication-TileColor" content="#5A7A3A">
+<meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+
+<!-- Open Graph (pour partage) -->
+<meta property="og:title" content="Horticulture Gaessler — Étiquettes">
+<meta property="og:description" content="Créateur d'étiquettes professionnelles pour plantes">
+<meta property="og:image" content="icons/icon-512x512.png">
+<meta property="og:type" content="website">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --g:#5a7a3a;--g2:#7ab648;--gl:#8aaa6a;--gp:#eaf2e4;
@@ -235,9 +269,134 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
 /* scrollbar */
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px}
+
+/* ── LOGIN SCREEN ── */
+.login-screen{
+  position:fixed;inset:0;background:linear-gradient(135deg,#2d4a1e 0%,#3d5a28 40%,#5a7a3a 100%);
+  display:flex;align-items:center;justify-content:center;z-index:9999;
+  font-family:'Nunito',sans-serif;
+}
+.login-box{
+  background:white;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;
+}
+.login-logo{width:80px;height:80px;margin:0 auto 16px;display:block}
+.login-title{font-size:1.3rem;font-weight:900;color:var(--g);margin-bottom:4px}
+.login-subtitle{font-size:.82rem;color:var(--muted);margin-bottom:28px;font-weight:600}
+.login-fg{margin-bottom:16px;text-align:left}
+.login-fg label{display:block;font-size:.7rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--g);margin-bottom:5px}
+.login-fg input{width:100%;border:1.5px solid var(--border);border-radius:8px;
+  padding:10px 14px;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:600;
+  outline:none;transition:border-color .18s;color:var(--text)}
+.login-fg input:focus{border-color:var(--g)}
+.login-btn{width:100%;padding:12px;background:var(--g);color:white;border:none;
+  border-radius:9px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:800;
+  cursor:pointer;transition:background .18s;margin-top:6px}
+.login-btn:hover{background:#4a6830}
+.login-btn:disabled{background:var(--muted);cursor:not-allowed}
+.login-error{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;
+  padding:10px 14px;font-size:.8rem;color:#dc2626;font-weight:600;margin-bottom:14px;
+  display:none;text-align:left}
+.login-error.show{display:block}
+.login-loading{display:none;font-size:.82rem;color:var(--muted);font-weight:600;margin-top:10px}
+.login-loading.show{display:block}
+.sync-indicator{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+  background:var(--g);color:white;padding:8px 16px;border-radius:20px;
+  font-size:.75rem;font-weight:700;z-index:500;opacity:0;transition:opacity .3s;
+  pointer-events:none;white-space:nowrap}
+.sync-indicator.show{opacity:1}
+
+/* ── LIBRARY FILTERS ── */
+.lib-filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;
+  padding:10px 14px;background:white;border-bottom:1px solid var(--border);
+  margin-bottom:16px;border-radius:10px;box-shadow:var(--shadow)}
+.lib-filter-select{border:1.5px solid var(--border);border-radius:7px;
+  padding:6px 10px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;
+  color:var(--text);background:white;outline:none;cursor:pointer}
+.lib-filter-select:focus{border-color:var(--g)}
+.lib-stat{font-size:.72rem;font-weight:700;color:var(--muted);margin-left:auto;white-space:nowrap}
+.lib-card-cb{position:absolute;top:10px;right:10px;width:18px;height:18px;
+  accent-color:var(--g);cursor:pointer;z-index:5;display:none}
+.lib-card:hover .lib-card-cb{display:block}
+.lib-card.checked .lib-card-cb{display:block}
+
+/* ── THEMES ── */
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.theme-opt{border:2px solid var(--border);border-radius:9px;padding:9px 10px;
+  cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:8px}
+.theme-opt:hover{border-color:var(--gl);transform:translateY(-1px)}
+.theme-opt.sel{border-color:var(--g)}
+.theme-swatches{display:flex;gap:3px;flex-shrink:0}
+.theme-swatch{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.1)}
+.theme-name{font-size:.72rem;font-weight:800;color:var(--text)}
+
+/* ── EXCEL IMPORT MODAL ── */
+.xl-drop{border:2px dashed var(--gl);border-radius:10px;padding:22px;
+  text-align:center;cursor:pointer;background:var(--gp);transition:all .18s;margin-bottom:14px}
+.xl-drop:hover,.xl-drop.over{background:#d4e8c8;border-color:var(--g)}
+.xl-drop input{display:none}
+.xl-preview{max-height:200px;overflow-y:auto;border:1px solid var(--border);
+  border-radius:8px;margin-bottom:12px}
+.xl-preview table{width:100%;border-collapse:collapse;font-size:.74rem}
+.xl-preview th{background:var(--gp);padding:5px 8px;text-align:left;
+  font-weight:800;color:var(--g);border-bottom:1px solid var(--border);position:sticky;top:0}
+.xl-preview td{padding:4px 8px;border-bottom:1px solid #f0f4ec;color:var(--text)}
+.xl-preview tr:last-child td{border-bottom:none}
+.xl-col-map{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.xl-col-map label{font-size:.68rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--g);display:block;margin-bottom:2px}
+.xl-col-map select{width:100%;border:1.5px solid var(--border);border-radius:6px;
+  padding:5px 8px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:600;
+  background:#fafcf8;outline:none}
+.xl-col-map select:focus{border-color:var(--g)}
+.xl-info{background:var(--gp);border-radius:8px;padding:9px 12px;
+  font-size:.76rem;color:var(--g);font-weight:600;margin-bottom:12px;line-height:1.5}
+
+/* AUTO-BACKUP */
+.backup-bar{border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.backup-warn{background:#fff8e1;border:1.5px solid #f5a623}
+.backup-ok{background:#f0faf0;border:1.5px solid var(--g)}
+.backup-icon{font-size:1.1rem;flex-shrink:0}
+.backup-text{flex:1;font-size:.72rem;font-weight:600;color:#555;line-height:1.4}
+.backup-text strong{display:block;font-size:.74rem;color:#333;margin-bottom:1px}
+.backup-btn{padding:5px 10px;border-radius:6px;border:none;font-family:'Nunito',sans-serif;
+  font-size:.73rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0}
 </style>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <svg class="login-logo" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 36Q12 52 18 54L42 54Q48 52 46 36Z" fill="#7ab648"/>
+      <path d="M11 32Q11 36 14 36L46 36Q49 36 49 32Q49 28 30 28Q11 28 11 32Z" fill="#7ab648"/>
+      <line x1="30" y1="28" x2="30" y2="18" stroke="#7ab648" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="30" cy="13" r="4" fill="#f5a623"/>
+      <ellipse cx="23" cy="13" rx="4" ry="2.5" fill="#f5a623" transform="rotate(-30 23 13)"/>
+      <ellipse cx="37" cy="13" rx="4" ry="2.5" fill="#f5a623" transform="rotate(30 37 13)"/>
+      <circle cx="30" cy="13" r="3" fill="#e8890a"/>
+    </svg>
+    <div class="login-title">Horticulture Gaessler</div>
+    <div class="login-subtitle">Créateur d'étiquettes — Accès privé</div>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-fg">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="votre@email.fr" autocomplete="email">
+    </div>
+    <div class="login-fg">
+      <label>Mot de passe</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">🔐 Se connecter</button>
+    <div class="login-loading" id="login-loading">Connexion en cours…</div>
+  </div>
+</div>
+
+<!-- SYNC INDICATOR -->
+<div class="sync-indicator" id="sync-indicator">🔄 Synchronisation…</div>
 
 <!-- TOPBAR -->
 <div class="topbar">
@@ -261,6 +420,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
     <button class="btn bo sm" onclick="importData()">📥 Importer</button>
     <button class="btn ba sm" onclick="exportData()">📤 Exporter</button>
     <button class="btn bp sm" onclick="openPrint('all')">🖨️ Imprimer</button>
+    <button id="btn-install-pwa" class="btn bg sm" onclick="installPWA()" style="display:none">📲 Installer l'app</button>
+    <button class="btn br sm" onclick="doLogout()" title="Se déconnecter">🚪</button>
   </div>
 </div>
 
@@ -338,6 +499,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
 
   <!-- DESIGN -->
   <div class="spane" id="tab-design">
+    <div class="sec">🎨 Thèmes prédéfinis</div>
+    <div class="theme-grid" id="theme-grid"></div>
+    <button class="btn bo sm full" style="margin-bottom:12px" onclick="applyTheme('custom')">✏️ Personnaliser manuellement</button>
     <div class="sec">🎨 Lignes d'information</div>
     <p style="font-size:.7rem;color:var(--muted);margin-bottom:10px">Cliquez sur une ligne pour la modifier</p>
     <div id="row-editors"></div>
@@ -373,6 +537,24 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
         <input type="range" id="s-name" min="14" max="28" value="21" oninput="liveUpdate();getElementById('s-nv').textContent=this.value+'px'">
         <span class="rval" id="s-nv">21px</span>
       </div>
+    </div>
+    <div class="fg"><label>Police du nom</label>
+      <select id="f-font" onchange="liveUpdate()">
+        <option value="'Playfair Display',serif">Playfair Display (défaut — italique élégant)</option>
+        <option value="'Georgia',serif">Georgia (classique)</option>
+        <option value="'Times New Roman',serif">Times New Roman (formel)</option>
+        <option value="'Nunito',sans-serif">Nunito (moderne arrondi)</option>
+        <option value="'Arial',sans-serif">Arial (neutre)</option>
+        <option value="'Trebuchet MS',sans-serif">Trebuchet MS (dynamique)</option>
+        <option value="'Courier New',monospace">Courier New (machine à écrire)</option>
+        <option value="cursive">Cursive (manuscrit)</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:.82rem;font-weight:700">
+        <input type="checkbox" id="f-italic" onchange="liveUpdate()" style="width:auto;accent-color:var(--g)" checked>
+        Nom en italique
+      </label>
     </div>
     <div class="sec">🎨 Couleurs</div>
     <div class="fg"><label>Fond header</label><input type="color" id="c-hdr" value="#ffffff" oninput="liveUpdate()"></div>
@@ -422,23 +604,64 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
         <span class="rval" id="l-fsv">20px</span>
       </div>
     </div>
+
+    <div class="sec" style="margin-top:14px">📍 Position du logo FPA</div>
+    <div class="fg"><label>Emplacement</label>
+      <select id="fpa-pos" onchange="liveUpdate()">
+        <option value="sous-principal">Sous le logo principal (défaut)</option>
+        <option value="droite-hdr">À droite dans l'en-tête</option>
+        <option value="bas-etiquette">En bas de l'étiquette</option>
+      </select>
+    </div>
+    <div id="fpa-offset-ctrl">
+      <div class="fg"><label>Décalage horizontal</label>
+        <div class="rrow">
+          <input type="range" id="fpa-ox" min="-60" max="60" value="0" oninput="liveUpdate();getElementById('fpa-oxv').textContent=(this.value>0?'+':'')+this.value+'px'">
+          <span class="rval" id="fpa-oxv">0px</span>
+        </div>
+      </div>
+      <div class="fg"><label>Décalage vertical</label>
+        <div class="rrow">
+          <input type="range" id="fpa-oy" min="-40" max="40" value="0" oninput="liveUpdate();getElementById('fpa-oyv').textContent=(this.value>0?'+':'')+this.value+'px'">
+          <span class="rval" id="fpa-oyv">0px</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div><!-- /sidebar -->
 
 <!-- CANVAS -->
 <div class="canvas">
   <div class="editor-area" id="view-editor">
-    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%">
+      <div id="backup-banner" style="max-width:560px;width:100%"></div>
       <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Aperçu en temps réel</div>
       <div id="preview-wrap"></div>
     </div>
   </div>
   <div class="lib-view" id="view-library">
     <div class="lib-tb">
-      <input class="lib-search" type="text" placeholder="🔍 Rechercher…" oninput="renderLib(this.value)">
-      <button class="btn bg" onclick="switchView('editor');clearForm()">✏️ Nouvelle étiquette</button>
-      <button class="btn ba" onclick="openPrint('all')">🖨️ Imprimer tout</button>
+      <input class="lib-search" type="text" id="lib-search" placeholder="🔍 Rechercher…" oninput="renderLib()">
+      <select class="lib-filter-select" id="lib-filter-type" onchange="renderLib()">
+        <option value="">Tous les types</option>
+        <option>Annuelle</option><option>Vivace</option><option>Bulbeuse</option>
+        <option>Bisannuelle</option><option>Annuelle grimpante</option>
+        <option>Annuelle / Vivace</option><option>Vivace / Arbustif</option>
+        <option>Mélange</option><option>Aromate</option><option>Légume</option>
+        <option>Arbuste</option><option>Rosier</option>
+      </select>
+      <select class="lib-filter-select" id="lib-sort" onchange="renderLib()">
+        <option value="name-az">Nom A→Z</option>
+        <option value="name-za">Nom Z→A</option>
+        <option value="date-desc">Plus récent</option>
+        <option value="date-asc">Plus ancien</option>
+        <option value="type">Par type</option>
+      </select>
+      <button class="btn bg" onclick="switchView('editor');clearForm()">✏️ Nouveau</button>
+      <button class="btn bo" onclick="openXLImport()">📊 Import Excel</button>
+      <button class="btn ba" onclick="openPrint('all')">🖨️ Imprimer</button>
       <button class="btn bo" onclick="exportData()">📤 Exporter</button>
+      <span class="lib-stat" id="lib-stat"></span>
     </div>
     <div class="lib-grid" id="lib-grid"></div>
   </div>
@@ -479,7 +702,47 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
   </div>
 </div>
 
-<!-- MODAL IMPORT -->
+<!-- MODAL EXCEL IMPORT -->
+<div class="overlay" id="modal-xl">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-h">
+      <h3>📊 Importer depuis Excel / CSV</h3>
+      <button class="modal-x" onclick="closeOverlay('modal-xl')">✕</button>
+    </div>
+    <div class="modal-b">
+      <div class="xl-info">
+        📋 <strong>Format attendu :</strong> un fichier Excel (.xlsx, .xls) ou CSV avec une ligne d'en-tête.<br>
+        Chaque ligne = une plante. Associez vos colonnes aux champs ci-dessous après l'upload.
+      </div>
+      <div class="xl-drop" id="xl-drop"
+        onclick="getElementById('xl-file').click()"
+        ondragover="event.preventDefault();this.classList.add('over')"
+        ondragleave="this.classList.remove('over')"
+        ondrop="xlDrop(event)">
+        <input type="file" id="xl-file" accept=".xlsx,.xls,.csv" onchange="xlLoad(this)">
+        <div style="font-size:2rem">📊</div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--g)">Cliquer ou glisser votre fichier Excel / CSV</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:4px">.xlsx · .xls · .csv</div>
+      </div>
+      <div id="xl-preview-zone" style="display:none">
+        <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--g);margin-bottom:6px">
+          Aperçu — <span id="xl-row-count">0</span> lignes détectées
+        </div>
+        <div class="xl-preview" id="xl-preview"></div>
+        <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--g);margin-bottom:6px">
+          Associer vos colonnes
+        </div>
+        <div class="xl-col-map" id="xl-col-map"></div>
+        <div style="display:flex;gap:9px">
+          <button class="btn bg" style="flex:1;justify-content:center" onclick="xlImport()">✅ Importer les plantes</button>
+          <button class="btn bo" onclick="xlReset()">↩️ Recommencer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORT JSON -->
 <div class="overlay" id="modal-import">
   <div class="modal">
     <div class="modal-h">
@@ -546,12 +809,13 @@ let rowCfg = JSON.parse(JSON.stringify(DEFAULT_ROWS));
 let customIcons = [];
 let selPrintIds = new Set();
 
-// ═══════════════ STORAGE — IndexedDB pour les étiquettes ═══════════════
+// ═══════════════ STORAGE — Supabase (sync) + IndexedDB (cache offline) ═══════════════
 const DB_NAME = 'hgpro_db';
 const DB_VER  = 1;
 const STORE   = 'labels';
 let _db = null;
 
+// ── IndexedDB (cache local hors-ligne) ──
 function openDB() {
   return new Promise(function(resolve, reject) {
     if (_db) { resolve(_db); return; }
@@ -566,8 +830,7 @@ function openDB() {
     req.onerror    = function(e) { reject(e.target.error); };
   });
 }
-
-function idbGetAll() {
+function idbGetAllLocal() {
   return openDB().then(function(db) {
     return new Promise(function(resolve, reject) {
       const tx  = db.transaction(STORE, 'readonly');
@@ -577,8 +840,7 @@ function idbGetAll() {
     });
   });
 }
-
-function idbPut(label) {
+function idbPutLocal(label) {
   return openDB().then(function(db) {
     return new Promise(function(resolve, reject) {
       const tx  = db.transaction(STORE, 'readwrite');
@@ -588,8 +850,7 @@ function idbPut(label) {
     });
   });
 }
-
-function idbDelete(id) {
+function idbDeleteLocal(id) {
   return openDB().then(function(db) {
     return new Promise(function(resolve, reject) {
       const tx  = db.transaction(STORE, 'readwrite');
@@ -599,8 +860,7 @@ function idbDelete(id) {
     });
   });
 }
-
-function idbClear() {
+function idbClearLocal() {
   return openDB().then(function(db) {
     return new Promise(function(resolve, reject) {
       const tx  = db.transaction(STORE, 'readwrite');
@@ -611,7 +871,79 @@ function idbClear() {
   });
 }
 
+// ── Supabase CRUD ──
+async function idbGetAll() {
+  if (!_currentUser) return idbGetAllLocal();
+  try {
+    const { data, error } = await _supa
+      .from('labels')
+      .select('*')
+      .eq('user_id', _currentUser.id)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    const labels = (data || []).map(function(row) {
+      return Object.assign({}, row.data, { id: row.id, _supaId: row.id });
+    });
+    // Mettre à jour le cache local
+    labels.forEach(function(l) { idbPutLocal(l); });
+    return labels;
+  } catch(e) {
+    console.warn('Supabase offline, using local cache:', e);
+    return idbGetAllLocal();
+  }
+}
+
+async function idbPut(label) {
+  // Toujours sauvegarder en local d'abord
+  await idbPutLocal(label);
+  if (!_currentUser) return;
+  try {
+    showSync('💾 Sauvegarde…');
+    if (label._supaId) {
+      // Mise à jour
+      await _supa.from('labels').update({
+        data: label,
+        updated_at: new Date().toISOString()
+      }).eq('id', label._supaId).eq('user_id', _currentUser.id);
+    } else {
+      // Création
+      const { data, error } = await _supa.from('labels').insert({
+        user_id: _currentUser.id,
+        data: label
+      }).select().single();
+      if (error) throw error;
+      // Mettre à jour l'id local avec l'id Supabase
+      label._supaId = data.id;
+      await idbPutLocal(label);
+    }
+    showSync('✅ Synchronisé');
+  } catch(e) {
+    console.warn('Sync error:', e);
+    showSync('⚠️ Sauvegardé localement');
+  }
+}
+
+async function idbDelete(id) {
+  await idbDeleteLocal(id);
+  if (!_currentUser) return;
+  try {
+    await _supa.from('labels').delete()
+      .eq('id', id).eq('user_id', _currentUser.id);
+    showSync('🗑️ Supprimé');
+  } catch(e) { console.warn('Delete sync error:', e); }
+}
+
+async function idbClear() {
+  await idbClearLocal();
+  if (!_currentUser) return;
+  try {
+    await _supa.from('labels').delete().eq('user_id', _currentUser.id);
+  } catch(e) { console.warn('Clear sync error:', e); }
+}
+
 // Settings + custom icons restent en localStorage (données légères, sans photos)
+// et sont aussi synchronisés sur Supabase (table app_settings) pour suivre
+// le compte plutôt que le seul navigateur.
 const LS = {
   getSet: function() { try{return JSON.parse(localStorage.getItem('hgp_set')||'{}')}catch(e){return{}} },
   setSet: function(s){ try{localStorage.setItem('hgp_set',JSON.stringify(s))}catch(e){} },
@@ -619,16 +951,53 @@ const LS = {
   setCI:  function(a){ try{localStorage.setItem('hgp_ci',JSON.stringify(a))}catch(e){toast('⚠️ Stockage plein!')} },
 };
 
+// ── Réglages par défaut : synchro cloud (Supabase) ──
+async function fetchCloudSettings() {
+  if (!_currentUser) return null;
+  try {
+    const { data, error } = await _supa
+      .from('app_settings')
+      .select('data')
+      .eq('user_id', _currentUser.id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data && data.data) ? data.data : null;
+  } catch(e) { console.warn('Load cloud settings error:', e); return null; }
+}
+
+let _pushSettingsTimer = null;
+function pushCloudSettings(settings) {
+  if (!_currentUser) return;
+  clearTimeout(_pushSettingsTimer);
+  _pushSettingsTimer = setTimeout(async () => {
+    try {
+      await _supa.from('app_settings').upsert({
+        user_id: _currentUser.id,
+        data: settings,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+    } catch(e) { console.warn('Save cloud settings error:', e); }
+  }, 800);
+}
+
 // ═══════════════ INIT ═══════════════
 async function init() {
   await openDB();
+  await restoreSyncHandle();
   customIcons = LS.getCI();
+  const cloudSettings = await fetchCloudSettings();
+  if (cloudSettings) {
+    LS.setSet(cloudSettings);
+    if (cloudSettings.ci) LS.setCI(cloudSettings.ci);
+  }
   loadSettings();
   buildFieldsForm();
   buildRowEditors();
   buildCIGrid();
+  buildThemeGrid();
   liveUpdate();
   await updateLibCount();
+  checkBackupReminder();
   // Wire print scope radios
   document.querySelectorAll('input[name="pscope"]').forEach(r => r.addEventListener('change', () => {
     const sel = document.querySelector('input[name="pscope"]:checked').value;
@@ -644,6 +1013,11 @@ function loadSettings() {
   if (s.logoFPA)  { curLogoFPA  = s.logoFPA;  showLogoFPAPreview(s.logoFPA); }
   if (s.rowCfg)   rowCfg = s.rowCfg;
   if (s.ci)       customIcons = s.ci;
+  if (s.font && getElementById('f-font'))   getElementById('f-font').value = s.font;
+  if (s.italic !== undefined && getElementById('f-italic')) getElementById('f-italic').checked = s.italic;
+  if (s.fpaPos && getElementById('fpa-pos')) getElementById('fpa-pos').value = s.fpaPos;
+  if (s.fpaOx && getElementById('fpa-ox')) { getElementById('fpa-ox').value = s.fpaOx; getElementById('fpa-oxv').textContent=(s.fpaOx>0?'+':'')+s.fpaOx+'px'; }
+  if (s.fpaOy && getElementById('fpa-oy')) { getElementById('fpa-oy').value = s.fpaOy; getElementById('fpa-oyv').textContent=(s.fpaOy>0?'+':'')+s.fpaOy+'px'; }
   const map = {
     'c-name':s.cName, 'c-type':s.cType, 'c-hdr':s.cHdr,
     'c-card':s.cCard, 'c-sep':s.cSep, 'f-foot':s.foot,
@@ -657,11 +1031,15 @@ function loadSettings() {
 
 function saveSettings() {
   const g = (id) => (getElementById(id)||{}).value || '';
-  LS.setSet({
+  const s = {
     logoMain:curLogoMain, logoFPA:curLogoFPA, rowCfg:rowCfg, ci:customIcons,
     cName:g('c-name'), cType:g('c-type'), cHdr:g('c-hdr'), cCard:g('c-card'), cSep:g('c-sep'),
     foot:g('f-foot'), sName:g('s-name'), lms:g('l-ms'), lfs:g('l-fs'),
-  });
+    font:g('f-font'), italic:(getElementById('f-italic')||{checked:true}).checked,
+    fpaPos:g('fpa-pos'), fpaOx:g('fpa-ox'), fpaOy:g('fpa-oy'),
+  };
+  LS.setSet(s);
+  pushCloudSettings(s);
 }
 
 // ═══════════════ ICON HELPER ═══════════════
@@ -684,6 +1062,180 @@ function iconHTMLWhite(key, size) {
   const svg = ICONS[key] || ICONS.info;
   return svg.replace('<svg ', '<svg width="' + size + '" height="' + size + '" style="color:white" ');
 }
+
+// ═══════════════ AUTO-SYNC — showSaveFilePicker (Firefox + Chrome) ═══════════════
+let syncFileHandle = null; // FileSystemFileHandle mémorisé
+const SYNC_STORE = 'sync_store';
+const SYNC_HANDLE_KEY = 'sync_file_handle';
+const SYNC_INFO_KEY = 'hgp_sync_info';
+
+function isFSASupported() {
+  return typeof window.showSaveFilePicker === 'function';
+}
+function getSyncInfo() {
+  try { return JSON.parse(localStorage.getItem(SYNC_INFO_KEY) || 'null'); } catch(e) { return null; }
+}
+function saveSyncInfo(info) {
+  try { localStorage.setItem(SYNC_INFO_KEY, JSON.stringify(info)); } catch(e) {}
+}
+
+// Stocker le file handle dans IndexedDB (les file handles ne sont pas sérialisables en JSON)
+function openSyncDB() {
+  return new Promise(function(resolve, reject) {
+    const req = indexedDB.open('hgpro_sync', 1);
+    req.onupgradeneeded = function(e) {
+      e.target.result.createObjectStore(SYNC_STORE);
+    };
+    req.onsuccess  = function(e) { resolve(e.target.result); };
+    req.onerror    = function(e) { reject(e.target.error); };
+  });
+}
+function saveFileHandle(handle) {
+  return openSyncDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(SYNC_STORE, 'readwrite');
+      tx.objectStore(SYNC_STORE).put(handle, SYNC_HANDLE_KEY);
+      tx.oncomplete = resolve;
+    });
+  });
+}
+function loadFileHandle() {
+  return openSyncDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx  = db.transaction(SYNC_STORE, 'readonly');
+      const req = tx.objectStore(SYNC_STORE).get(SYNC_HANDLE_KEY);
+      req.onsuccess = function() { resolve(req.result || null); };
+      req.onerror   = function() { resolve(null); };
+    });
+  });
+}
+
+// Choisir l'emplacement de sauvegarde
+async function chooseSyncFile() {
+  if (!isFSASupported()) {
+    doManualBackup();
+    return;
+  }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'gaessler_bibliotheque.json',
+      types: [{ description: 'Fichier JSON', accept: { 'application/json': ['.json'] } }],
+      startIn: 'documents',
+    });
+    syncFileHandle = handle;
+    await saveFileHandle(handle);
+    saveSyncInfo({ fileName: handle.name, lastSync: null });
+    toast('📁 Emplacement configuré : ' + handle.name);
+    await doAutoSync();
+    renderBackupBanner();
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('⚠️ Impossible de configurer l\'emplacement.');
+  }
+}
+
+// Écrire dans le fichier choisi
+async function writeToSyncFile(labels) {
+  if (!syncFileHandle) return false;
+  try {
+    // Vérifier / demander permission
+    let perm = await syncFileHandle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') {
+      perm = await syncFileHandle.requestPermission({ mode: 'readwrite' });
+    }
+    if (perm !== 'granted') return false;
+    const writable = await syncFileHandle.createWritable();
+    await writable.write(JSON.stringify({ v: 3, labels: labels, lastSync: new Date().toISOString() }, null, 2));
+    await writable.close();
+    return true;
+  } catch(e) {
+    console.warn('Sync write error:', e);
+    return false;
+  }
+}
+
+async function doAutoSync() {
+  if (!syncFileHandle) return;
+  const labels = await idbGetAll();
+  const ok = await writeToSyncFile(labels);
+  if (ok) {
+    const info = getSyncInfo() || {};
+    info.lastSync = new Date().toISOString();
+    info.count = labels.length;
+    saveSyncInfo(info);
+    renderBackupBanner();
+  }
+}
+
+function formatSyncDate(isoStr) {
+  if (!isoStr) return 'jamais';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderBackupBanner() {
+  const el = getElementById('backup-banner');
+  if (!el) return;
+  idbGetAll().then(function(labels) {
+    if (!labels.length) { el.innerHTML = ''; return; }
+    const info = getSyncInfo();
+
+    if (!isFSASupported()) {
+      // Navigateur incompatible
+      el.innerHTML = '<div class="backup-bar backup-warn">'
+        + '<span class="backup-icon">💾</span>'
+        + '<div class="backup-text"><strong>Sauvegarde manuelle</strong>'
+        + labels.length + ' étiquette(s) — téléchargez régulièrement votre bibliothèque.</div>'
+        + '<button class="backup-btn" style="background:var(--orange);color:white" onclick="doManualBackup()">Télécharger</button>'
+        + '</div>';
+      return;
+    }
+
+    if (!syncFileHandle || !info || !info.fileName) {
+      // Pas encore configuré
+      el.innerHTML = '<div class="backup-bar backup-warn">'
+        + '<span class="backup-icon">📁</span>'
+        + '<div class="backup-text"><strong>Sauvegarde automatique non configurée</strong>'
+        + labels.length + ' étiquette(s) — choisissez où sauvegarder (iCloud, Mac…)</div>'
+        + '<button class="backup-btn" style="background:var(--orange);color:white" onclick="chooseSyncFile()">Configurer</button>'
+        + '</div>';
+    } else if (info.lastSync) {
+      // Tout va bien
+      el.innerHTML = '<div class="backup-bar backup-ok">'
+        + '<span class="backup-icon">✅</span>'
+        + '<div class="backup-text"><strong>' + info.fileName + '</strong>'
+        + 'Dernière sync : ' + formatSyncDate(info.lastSync) + ' — ' + labels.length + ' étiquette(s)</div>'
+        + '<button class="backup-btn" style="background:var(--g);color:white" onclick="chooseSyncFile()">Changer</button>'
+        + '</div>';
+    } else {
+      el.innerHTML = '<div class="backup-bar backup-warn">'
+        + '<span class="backup-icon">⏳</span>'
+        + '<div class="backup-text"><strong>' + info.fileName + '</strong>En attente de synchronisation…</div>'
+        + '<button class="backup-btn" style="background:var(--orange);color:white" onclick="doAutoSync()">Synchroniser</button>'
+        + '</div>';
+    }
+  });
+}
+
+// Téléchargement manuel de secours
+function doManualBackup() {
+  idbGetAll().then(function(labels) {
+    if (!labels.length) { toast('⚠️ Bibliothèque vide.'); return; }
+    const blob = new Blob([JSON.stringify({ v: 3, labels: labels }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'gaessler_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    toast('💾 Sauvegarde téléchargée !');
+  });
+}
+
+// Restaurer le file handle au démarrage
+async function restoreSyncHandle() {
+  const handle = await loadFileHandle();
+  if (handle) { syncFileHandle = handle; }
+}
+
+function checkBackupReminder() { renderBackupBanner(); }
 
 // ═══════════════ FIELDS FORM ═══════════════
 function buildFieldsForm() {
@@ -959,48 +1511,53 @@ const DECO = '<svg class="etq-deco" viewBox="0 0 80 100" fill="none" stroke="#5a
 
 function buildLabel(d) {
   const s = LS.getSet();
-  const cn   = d.colorName  || s.cName  || '#3b2d7a';
-  const ct   = d.colorType  || s.cType  || '#5a7a3a';
-  const chdr = d.colorHdr   || s.cHdr   || '#ffffff';
-  const ccard= d.colorCard  || s.cCard  || '#ffffff';
-  const csep = d.colorSep   || s.cSep   || '#dde8d5';
-  const sn   = d.sizeName   || s.sName  || 21;
-  const foot = d.footerText || s.foot   || '🍃 🌿 ✿ 🌿 🍃';
-  const lms  = d.logoMainSize|| s.lms   || 36;
-  const lfs  = d.logoFPASize || s.lfs   || 20;
-  const fpaOn= d.fpaOn !== undefined ? d.fpaOn : (getElementById('fpa-on') || {}).checked;
-  const lMain= d.logoMain || curLogoMain;
-  const lFPA = fpaOn ? (d.logoFPA || curLogoFPA) : null;
-  const rc   = d.rowCfg || rowCfg;
-  const ci   = d.customIcons || customIcons;
+  const cn    = d.colorName   || s.cName  || '#3b2d7a';
+  const ct    = d.colorType   || s.cType  || '#5a7a3a';
+  const chdr  = d.colorHdr    || s.cHdr   || '#ffffff';
+  const ccard = d.colorCard   || s.cCard  || '#ffffff';
+  const sn    = d.sizeName    || s.sName  || 21;
+  const foot  = d.footerText  || s.foot   || '🍃 🌿 ✿ 🌿 🍃';
+  const lms   = d.logoMainSize|| s.lms    || 36;
+  const lfs   = d.logoFPASize || s.lfs    || 20;
+  const font  = d.fontName    || s.font   || "'Playfair Display',serif";
+  const italic= d.fontItalic !== undefined ? d.fontItalic : (s.italic !== undefined ? s.italic : true);
+  const fpaOn = d.fpaOn !== undefined ? d.fpaOn : (getElementById('fpa-on')||{}).checked;
+  const fpaPos= d.fpaPos      || s.fpaPos || 'sous-principal';
+  const fpaOx = d.fpaOx       || s.fpaOx  || 0;
+  const fpaOy = d.fpaOy       || s.fpaOy  || 0;
+  const lMain = d.logoMain || curLogoMain;
+  const lFPA  = fpaOn ? (d.logoFPA || curLogoFPA) : null;
+  const rc    = d.rowCfg || rowCfg;
+  const ci    = d.customIcons || customIcons;
 
-  // Logo
-  const logoHtml = lMain
+  // Logos
+  const logoMainHtml = lMain
     ? '<img src="' + lMain + '" style="height:' + lms + 'px;width:auto;max-width:88px;object-fit:contain">'
     : DEFAULT_LOGO.replace('<svg ', '<svg style="height:' + lms + 'px;width:auto" ');
-  const fpaHtml = lFPA
-    ? '<div class="etq-logo-fpa"><img src="' + lFPA + '" style="height:' + lfs + 'px;width:auto;max-width:80px;object-fit:contain"></div>'
+
+  const fpaImgHtml = lFPA
+    ? '<img src="' + lFPA + '" style="height:' + lfs + 'px;width:auto;max-width:80px;object-fit:contain;position:relative;top:' + fpaOy + 'px;left:' + fpaOx + 'px">'
     : '';
+
+  // FPA selon position
+  const fpaUnderMain = (fpaPos === 'sous-principal' && lFPA)
+    ? '<div class="etq-logo-fpa">' + fpaImgHtml + '</div>' : '';
+  const fpaRightHdr = (fpaPos === 'droite-hdr' && lFPA)
+    ? '<div style="flex-shrink:0;display:flex;align-items:center">' + fpaImgHtml + '</div>' : '';
+  const fpaBottom = (fpaPos === 'bas-etiquette' && lFPA)
+    ? '<div style="display:flex;justify-content:center;padding:4px 0 2px;border-top:1px solid #eef2ee">' + fpaImgHtml + '</div>' : '';
 
   // Photo
   const ph = d.photo || curPhoto;
-  let photoHtml;
-  if (ph) {
-    const z = d.photoZ || (getElementById('p-z')||{value:100}).value;
-    const px= d.photoX || (getElementById('p-x')||{value:50}).value;
-    const py= d.photoY || (getElementById('p-y')||{value:50}).value;
-    photoHtml = '<div class="etq-photo">'
-      + '<img src="' + ph + '" style="width:100%;height:100%;object-fit:cover;object-position:' + px + '% ' + py + '%;transform:scale(' + (z/100) + ');transform-origin:' + px + '% ' + py + '%">'
-      + '</div>';
-  } else {
-    photoHtml = '<div class="etq-photo"><div class="etq-photo-empty">'
-      + '<svg viewBox="0 0 64 64" fill="none" stroke="#8aaa6a" stroke-width="1.5"><rect x="4" y="8" width="56" height="44" rx="4"/><circle cx="20" cy="24" r="6"/><path d="M4 40L18 28 30 38 42 26 60 40"/></svg>'
-      + '<span>Emplacement photo</span></div></div>';
-  }
+  const pz = d.photoZ || (getElementById('p-z')||{value:100}).value;
+  const px = d.photoX || (getElementById('p-x')||{value:50}).value;
+  const py = d.photoY || (getElementById('p-y')||{value:50}).value;
+  const photoHtml = ph
+    ? '<img src="' + ph + '" style="width:100%;height:100%;object-fit:cover;object-position:' + px + '% ' + py + '%;transform:scale(' + (pz/100) + ');transform-origin:' + px + '% ' + py + '%">'
+    : '<div class="etq-photo-empty"><svg viewBox="0 0 64 64" fill="none" stroke="#8aaa6a" stroke-width="1.5"><rect x="4" y="8" width="56" height="44" rx="4"/><circle cx="20" cy="24" r="6"/><path d="M4 40L18 28 30 38 42 26 60 40"/></svg><span>Emplacement photo</span></div>';
 
-  // Rows
-  let rowsHtml = '';
-  rc.filter(function(r){ return r.visible !== false; }).forEach(function(r) {
+  // Info rows
+  const rowsHtml = rc.filter(function(r){ return r.visible !== false; }).map(function(r) {
     const val = d[r.id] || '';
     let ico;
     if (r.icon && r.icon.startsWith('ci_')) {
@@ -1009,24 +1566,30 @@ function buildLabel(d) {
     } else {
       ico = (ICONS[r.icon] || ICONS.info).replace('<svg ', '<svg width="13" height="13" style="color:white" ');
     }
-    rowsHtml += '<div class="etq-row">'
+    return '<div class="etq-row">'
       + '<div class="etq-badge" style="background:' + r.color + '">' + ico + '</div>'
       + '<span class="etq-lbl">' + r.label + '</span>'
       + '<span class="etq-sep">:</span>'
       + '<span class="etq-val">' + (val || '<span style="color:#ccc;font-style:italic">—</span>') + '</span>'
       + '</div>';
-  });
+  }).join('');
+
+  const nameStyle = 'color:' + cn + ';font-size:' + sn + 'px;font-family:' + font + ';font-style:' + (italic ? 'italic' : 'normal');
 
   return '<div class="etq" style="background:' + ccard + '">'
     + '<div class="etq-hdr" style="background:' + chdr + '">'
-    + '<div class="etq-logos"><div class="etq-logo-main">' + logoHtml + '</div>' + fpaHtml + '</div>'
-    + '<div class="etq-ttl">'
-    + '<span class="etq-type" style="color:' + ct + '">' + (d.type || 'Annuelle') + '</span>'
-    + '<div class="etq-div"></div>'
-    + '<span class="etq-name" style="color:' + cn + ';font-size:' + sn + 'px">&#8216;' + (d.name || 'Nom de la plante') + '&#8217;</span>'
-    + '</div>' + DECO + '</div>'
-    + photoHtml
-    + '<div class="etq-infos" style="--sep:' + csep + '">' + rowsHtml + '</div>'
+    +   '<div class="etq-logos"><div class="etq-logo-main">' + logoMainHtml + '</div>' + fpaUnderMain + '</div>'
+    +   '<div class="etq-ttl">'
+    +     '<span class="etq-type" style="color:' + ct + '">' + (d.type || 'Annuelle') + '</span>'
+    +     '<div class="etq-div"></div>'
+    +     '<span class="etq-name" style="' + nameStyle + '">&#8216;' + (d.name || 'Nom de la plante') + '&#8217;</span>'
+    +   '</div>'
+    +   DECO
+    +   fpaRightHdr
+    + '</div>'
+    + '<div class="etq-photo" style="flex:1">' + photoHtml + '</div>'
+    + '<div class="etq-infos" style="flex-shrink:0">' + rowsHtml + '</div>'
+    + fpaBottom
     + '<div class="etq-foot">' + foot + '</div>'
     + '</div>';
 }
@@ -1034,22 +1597,26 @@ function buildLabel(d) {
 // ═══════════════ FORM DATA ═══════════════
 function getFormData() {
   const d = {
-    name: (getElementById('f-name')||{value:''}).value.trim(),
-    type: (getElementById('f-type')||{value:'Annuelle'}).value,
-    photo: curPhoto,
-    photoH: (getElementById('p-h')||{value:180}).value,
-    photoZ: (getElementById('p-z')||{value:100}).value,
-    photoX: (getElementById('p-x')||{value:50}).value,
-    photoY: (getElementById('p-y')||{value:50}).value,
-    colorName:(getElementById('c-name')||{value:'#3b2d7a'}).value,
-    colorType:(getElementById('c-type')||{value:'#5a7a3a'}).value,
-    colorHdr: (getElementById('c-hdr')||{value:'#ffffff'}).value,
-    colorCard:(getElementById('c-card')||{value:'#ffffff'}).value,
-    colorSep: (getElementById('c-sep')||{value:'#dde8d5'}).value,
-    sizeName: (getElementById('s-name')||{value:21}).value,
+    name:      (getElementById('f-name')||{value:''}).value.trim(),
+    type:      (getElementById('f-type')||{value:'Annuelle'}).value,
+    photo:     curPhoto,
+    photoZ:    (getElementById('p-z')||{value:100}).value,
+    photoX:    (getElementById('p-x')||{value:50}).value,
+    photoY:    (getElementById('p-y')||{value:50}).value,
+    colorName: (getElementById('c-name')||{value:'#3b2d7a'}).value,
+    colorType: (getElementById('c-type')||{value:'#5a7a3a'}).value,
+    colorHdr:  (getElementById('c-hdr')||{value:'#ffffff'}).value,
+    colorCard: (getElementById('c-card')||{value:'#ffffff'}).value,
+    colorSep:  (getElementById('c-sep')||{value:'#dde8d5'}).value,
+    sizeName:  (getElementById('s-name')||{value:21}).value,
+    fontName:  (getElementById('f-font')||{value:"'Playfair Display',serif"}).value,
+    fontItalic:(getElementById('f-italic')||{checked:true}).checked,
     footerText:(getElementById('f-foot')||{value:'🍃 🌿 ✿ 🌿 🍃'}).value,
-    logoMain: curLogoMain, logoFPA: curLogoFPA,
-    fpaOn: (getElementById('fpa-on')||{checked:false}).checked,
+    logoMain:  curLogoMain, logoFPA: curLogoFPA,
+    fpaOn:     (getElementById('fpa-on')||{checked:false}).checked,
+    fpaPos:    (getElementById('fpa-pos')||{value:'sous-principal'}).value,
+    fpaOx:     (getElementById('fpa-ox')||{value:0}).value,
+    fpaOy:     (getElementById('fpa-oy')||{value:0}).value,
     logoMainSize:(getElementById('l-ms')||{value:36}).value,
     logoFPASize: (getElementById('l-fs')||{value:20}).value,
     rowCfg: rowCfg, customIcons: customIcons,
@@ -1085,6 +1652,8 @@ async function saveLabel() {
     toast('✅ Étiquette enregistrée !');
   }
   await updateLibCount();
+  checkBackupReminder();
+  doAutoSync(); // sync silencieux dans le dossier choisi
 }
 
 function clearForm() {
@@ -1108,6 +1677,11 @@ function editLabel(id) {
     const dm = {'c-name':'colorName','c-type':'colorType','c-hdr':'colorHdr','c-card':'colorCard','c-sep':'colorSep','f-foot':'footerText'};
     Object.entries(dm).forEach(function(e){ if(d[e[1]] && getElementById(e[0])) getElementById(e[0]).value=d[e[1]]; });
     if (d.sizeName)    { getElementById('s-name').value=d.sizeName; getElementById('s-nv').textContent=d.sizeName+'px'; }
+    if (d.fontName && getElementById('f-font'))  getElementById('f-font').value = d.fontName;
+    if (d.fontItalic !== undefined && getElementById('f-italic')) getElementById('f-italic').checked = d.fontItalic;
+    if (d.fpaPos && getElementById('fpa-pos')) getElementById('fpa-pos').value = d.fpaPos;
+    if (d.fpaOx !== undefined && getElementById('fpa-ox')) { getElementById('fpa-ox').value=d.fpaOx; getElementById('fpa-oxv').textContent=(d.fpaOx>0?'+':'')+d.fpaOx+'px'; }
+    if (d.fpaOy !== undefined && getElementById('fpa-oy')) { getElementById('fpa-oy').value=d.fpaOy; getElementById('fpa-oyv').textContent=(d.fpaOy>0?'+':'')+d.fpaOy+'px'; }
     if (d.logoMainSize){ getElementById('l-ms').value=d.logoMainSize; getElementById('l-msv').textContent=d.logoMainSize+'px'; }
     if (d.logoFPASize) { getElementById('l-fs').value=d.logoFPASize;  getElementById('l-fsv').textContent=d.logoFPASize+'px'; }
     if (d.fpaOn) getElementById('fpa-on').checked = true;
@@ -1128,26 +1702,49 @@ function deleteLabel(id) {
   idbGetAll().then(function(labels) {
     const l = labels.find(function(l){ return l.id === id; });
     if (!l || !confirm('Supprimer "' + l.name + '" ?')) return;
-    idbDelete(id).then(function(){ renderLib(); updateLibCount(); toast('🗑️ Supprimée.'); });
+    idbDelete(id).then(function(){ renderLib(); updateLibCount(); doAutoSync(); toast('🗑️ Supprimée.'); });
   });
 }
 
-// ═══════════════ LIBRARY ═══════════════
-function renderLib(search) {
-  search = search || '';
-  idbGetAll().then(function(allLabels) {
-    let labels = allLabels;
-    if (search) labels = labels.filter(function(l){ return l.name.toLowerCase().indexOf(search.toLowerCase()) > -1; });
+// ═══════════════ LIBRARY — tri, filtres, duplication ═══════════════
+function renderLib() {
+  const search  = (getElementById('lib-search')||{value:''}).value.toLowerCase();
+  const typeF   = (getElementById('lib-filter-type')||{value:''}).value;
+  const sortV   = (getElementById('lib-sort')||{value:'name-az'}).value;
+
+  idbGetAll().then(function(all) {
+    let labels = all;
+    // Filtre recherche
+    if (search) labels = labels.filter(function(l){ return (l.name||'').toLowerCase().indexOf(search) > -1; });
+    // Filtre type
+    if (typeF)  labels = labels.filter(function(l){ return l.type === typeF; });
+    // Tri
+    labels.sort(function(a, b) {
+      if (sortV === 'name-az')   return (a.name||'').localeCompare(b.name||'', 'fr');
+      if (sortV === 'name-za')   return (b.name||'').localeCompare(a.name||'', 'fr');
+      if (sortV === 'date-desc') return (b.id||0) - (a.id||0);
+      if (sortV === 'date-asc')  return (a.id||0) - (b.id||0);
+      if (sortV === 'type')      return (a.type||'').localeCompare(b.type||'', 'fr');
+      return 0;
+    });
+
     const g = getElementById('lib-grid');
+    const stat = getElementById('lib-stat');
+    if (stat) stat.textContent = labels.length + ' / ' + all.length + ' étiquette(s)';
+
     if (!labels.length) {
-      g.innerHTML = '<div class="lib-empty">' + (search ? 'Aucun résultat pour "' + search + '"' : 'Bibliothèque vide.<br>Créez votre première étiquette !') + '</div>';
+      g.innerHTML = '<div class="lib-empty">'
+        + (search || typeF ? 'Aucun résultat — modifiez vos filtres.' : 'Bibliothèque vide.<br>Créez votre première étiquette !')
+        + '</div>';
       return;
     }
     let html = '';
     labels.forEach(function(l) {
-      html += '<div class="lib-card">' + buildLabel(l);
+      html += '<div class="lib-card" id="lc-' + l.id + '">';
+      html += buildLabel(l);
       html += '<div class="lib-acts">';
-      html += '<button class="la-e" onclick="editLabel(' + l.id + ')">✏️ Modifier</button>';
+      html += '<button class="la-e" onclick="editLabel(' + l.id + ')">✏️</button>';
+      html += '<button class="la-e" onclick="duplicateLabel(' + l.id + ')" title="Dupliquer">⧉</button>';
       html += '<button class="la-p" onclick="openPrint1(' + l.id + ')">🖨️</button>';
       html += '<button class="la-d" onclick="deleteLabel(' + l.id + ')">🗑️</button>';
       html += '</div></div>';
@@ -1155,8 +1752,220 @@ function renderLib(search) {
     g.innerHTML = html;
   });
 }
+
 function updateLibCount() {
-  idbGetAll().then(function(labels){ getElementById('lib-count').textContent = labels.length; });
+  idbGetAll().then(function(labels){
+    getElementById('lib-count').textContent = labels.length;
+    const stat = getElementById('lib-stat');
+    if (stat) stat.textContent = labels.length + ' étiquette(s)';
+  });
+}
+
+// ── DUPLICATION ──
+function duplicateLabel(id) {
+  idbGetAll().then(function(labels) {
+    const src = labels.find(function(l){ return l.id === id; });
+    if (!src) return;
+    const copy = Object.assign({}, src);
+    copy.id = Date.now();
+    copy.name = src.name + ' (copie)';
+    idbPut(copy).then(function() {
+      renderLib(); updateLibCount(); doAutoSync();
+      toast('⧉ "' + copy.name + '" créée !');
+    });
+  });
+}
+
+// ═══════════════ THEMES PRÉDÉFINIS ═══════════════
+const THEMES = [
+  { id:'alsace',    name:'Alsace',       swatches:['#5a7a3a','#3b2d7a','#ffffff','#eaf2e4'],
+    cName:'#3b2d7a', cType:'#5a7a3a', cHdr:'#ffffff', cCard:'#ffffff', cSep:'#dde8d5',
+    foot:'🌺 ✿ 🌺', rowColors:['#f5a623','#4a90d9','#6aaa4a','#7ec8e3','#e87d9a','#5a7a3a'] },
+  { id:'ete',       name:'Été éclatant', swatches:['#e87d9a','#f5a623','#fff8e1','#fce4ec'],
+    cName:'#c2185b', cType:'#e65100', cHdr:'#fff8e1', cCard:'#fffde7', cSep:'#fce4ec',
+    foot:'🌸 🌼 🌸', rowColors:['#f5a623','#e87d9a','#66bb6a','#4fc3f7','#ab47bc','#ef5350'] },
+  { id:'sobre',     name:'Sobre Pro',    swatches:['#263238','#546e7a','#eceff1','#f5f5f5'],
+    cName:'#263238', cType:'#546e7a', cHdr:'#eceff1', cCard:'#f5f5f5', cSep:'#cfd8dc',
+    foot:'— ◆ —', rowColors:['#546e7a','#78909c','#90a4ae','#78909c','#546e7a','#263238'] },
+  { id:'nature',    name:'Nature',       swatches:['#2e7d32','#1b5e20','#f1f8e9','#e8f5e9'],
+    cName:'#1b5e20', cType:'#2e7d32', cHdr:'#f1f8e9', cCard:'#e8f5e9', cSep:'#c8e6c9',
+    foot:'🍃 🌿 🍃', rowColors:['#f9a825','#2196f3','#43a047','#26c6da','#e91e63','#2e7d32'] },
+  { id:'automne',   name:'Automne',      swatches:['#bf360c','#e65100','#fbe9e7','#fff3e0'],
+    cName:'#bf360c', cType:'#e65100', cHdr:'#fbe9e7', cCard:'#fff3e0', cSep:'#ffccbc',
+    foot:'🍂 🍁 🍂', rowColors:['#ff8f00','#e65100','#558b2f','#00838f','#ad1457','#bf360c'] },
+  { id:'nuit',      name:'Nuit & Or',    swatches:['#f5a623','#ffd54f','#1a1a2e','#16213e'],
+    cName:'#ffd54f', cType:'#f5a623', cHdr:'#1a1a2e', cCard:'#16213e', cSep:'#2a2a4a',
+    foot:'✦ ✧ ✦', rowColors:['#f5a623','#4fc3f7','#81c784','#80deea','#f48fb1','#ffd54f'] },
+];
+
+let activeTheme = 'custom';
+
+function buildThemeGrid() {
+  const g = getElementById('theme-grid');
+  if (!g) return;
+  let html = THEMES.map(function(t) {
+    const swatches = t.swatches.map(function(c) {
+      return '<div class="theme-swatch" style="background:' + c + '"></div>';
+    }).join('');
+    return '<div class="theme-opt' + (activeTheme === t.id ? ' sel' : '') + '" onclick="applyTheme(\'' + t.id + '\')">'
+      + '<div class="theme-swatches">' + swatches + '</div>'
+      + '<span class="theme-name">' + t.name + '</span>'
+      + '</div>';
+  }).join('');
+  g.innerHTML = html;
+}
+
+function applyTheme(id) {
+  activeTheme = id;
+  buildThemeGrid();
+  if (id === 'custom') return;
+  const t = THEMES.find(function(t){ return t.id === id; });
+  if (!t) return;
+  // Apply colors to form
+  const map = {'c-name':t.cName,'c-type':t.cType,'c-hdr':t.cHdr,'c-card':t.cCard,'c-sep':t.cSep};
+  Object.entries(map).forEach(function(e){ const el=getElementById(e[0]); if(el) el.value=e[1]; });
+  // Apply row badge colors
+  if (t.rowColors) {
+    t.rowColors.forEach(function(c, i){ if(rowCfg[i]) rowCfg[i].color = c; });
+    buildRowEditors();
+  }
+  // Apply footer
+  if (t.foot) { const el=getElementById('f-foot'); if(el) el.value=t.foot; }
+  liveUpdate();
+  toast('🎨 Thème "' + t.name + '" appliqué !');
+}
+
+// ═══════════════ EXCEL / CSV IMPORT ═══════════════
+let xlData = []; // rows parsed from file
+let xlHeaders = [];
+
+function openXLImport() {
+  xlReset();
+  getElementById('modal-xl').classList.add('on');
+}
+
+function xlDrop(e) {
+  e.preventDefault();
+  getElementById('xl-drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) loadXLFile(f);
+}
+
+function xlLoad(input) {
+  if (input.files[0]) loadXLFile(input.files[0]);
+}
+
+function loadXLFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      let rows = [];
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        // CSV parsing
+        const text = new TextDecoder('utf-8').decode(new Uint8Array(e.target.result));
+        const lines = text.split(/\r?\n/).filter(function(l){ return l.trim(); });
+        const sep = lines[0].indexOf(';') > -1 ? ';' : ',';
+        rows = lines.map(function(l){ return l.split(sep).map(function(c){ return c.replace(/^"|"$/g,'').trim(); }); });
+      } else {
+        // Excel parsing via SheetJS
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      }
+      if (rows.length < 2) { toast('⚠️ Fichier vide ou illisible.'); return; }
+      xlHeaders = rows[0].map(String);
+      xlData = rows.slice(1).filter(function(r){ return r.some(function(c){ return c !== ''; }); });
+      showXLPreview();
+    } catch(err) {
+      toast('⚠️ Impossible de lire le fichier : ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showXLPreview() {
+  getElementById('xl-drop').style.display = 'none';
+  const zone = getElementById('xl-preview-zone');
+  zone.style.display = 'block';
+  getElementById('xl-row-count').textContent = xlData.length;
+
+  // Preview table (5 first rows)
+  const preview5 = xlData.slice(0, 5);
+  let tbl = '<table><tr>' + xlHeaders.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr>';
+  preview5.forEach(function(row) {
+    tbl += '<tr>' + xlHeaders.map(function(h, i){ return '<td>' + (row[i]||'') + '</td>'; }).join('') + '</tr>';
+  });
+  tbl += '</table>';
+  getElementById('xl-preview').innerHTML = tbl;
+
+  // Column mapping
+  const FIELDS = [
+    { key:'name',         label:'Nom de la plante *' },
+    { key:'type',         label:'Type' },
+    { key:'exposition',   label:'Exposition' },
+    { key:'arrosage',     label:'Arrosage' },
+    { key:'taille',       label:'Taille' },
+    { key:'rusticite',    label:'Rusticité' },
+    { key:'floraison',    label:'Floraison' },
+    { key:'utilisation',  label:'Utilisation' },
+  ];
+  const opts = '<option value="">— Ignorer —</option>'
+    + xlHeaders.map(function(h, i){ return '<option value="' + i + '">' + h + '</option>'; }).join('');
+
+  let mapHtml = '';
+  FIELDS.forEach(function(f) {
+    // Auto-detect matching column
+    const auto = xlHeaders.findIndex(function(h){
+      return h.toLowerCase().replace(/[^a-z]/g,'').indexOf(f.key.toLowerCase().replace(/[^a-z]/g,'')) > -1
+          || f.key.toLowerCase().indexOf(h.toLowerCase().replace(/[^a-z]/g,'')) > -1;
+    });
+    mapHtml += '<div><label>' + f.label + '</label>'
+      + '<select id="xlm-' + f.key + '">' + opts + '</select></div>';
+    // Set auto-detected
+    setTimeout(function(key, idx) {
+      const el = getElementById('xlm-' + key);
+      if (el && idx > -1) el.value = String(idx);
+    }.bind(null, f.key, auto), 50);
+  });
+  getElementById('xl-col-map').innerHTML = mapHtml;
+}
+
+function xlImport() {
+  const FIELDS = ['name','type','exposition','arrosage','taille','rusticite','floraison','utilisation'];
+  const map = {};
+  FIELDS.forEach(function(f) {
+    const el = getElementById('xlm-' + f);
+    map[f] = el ? parseInt(el.value) : -1;
+  });
+  if (isNaN(map.name) || map.name < 0) { toast('⚠️ Choisissez au moins la colonne "Nom de la plante".'); return; }
+
+  const toImport = xlData.map(function(row) {
+    const d = Object.assign({}, getFormData()); // hérite des réglages actuels
+    d.id = Date.now() + Math.random();
+    d.photo = null; // pas de photo à l'import
+    FIELDS.forEach(function(f) { if (map[f] >= 0) d[f] = (row[map[f]]||'').toString().trim(); });
+    return d;
+  }).filter(function(d){ return d.name; });
+
+  if (!toImport.length) { toast('⚠️ Aucune ligne valide trouvée.'); return; }
+
+  idbGetAll().then(function(existing) {
+    const promises = toImport.map(function(l) { return idbPut(l); });
+    Promise.all(promises).then(function() {
+      updateLibCount(); renderLib(); doAutoSync(); closeOverlay('modal-xl'); xlReset();
+      toast('✅ ' + toImport.length + ' plante(s) importée(s) !');
+    });
+  });
+}
+
+function xlReset() {
+  xlData = []; xlHeaders = [];
+  const drop = getElementById('xl-drop');
+  if (drop) drop.style.display = '';
+  const zone = getElementById('xl-preview-zone');
+  if (zone) zone.style.display = 'none';
+  const fi = getElementById('xl-file');
+  if (fi) fi.value = '';
 }
 
 // ═══════════════ PRINT ═══════════════
@@ -1286,6 +2095,7 @@ function doImport(input) {
         });
         Promise.all(promises).then(function() {
           updateLibCount(); renderLib(); closeOverlay('modal-import');
+          doAutoSync();
           toast('✅ ' + n + ' étiquette(s) importée(s) !');
         });
       });
@@ -1312,6 +2122,7 @@ function switchTab(t) {
   document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
   const pane = getElementById('tab-' + t);
   if (pane) pane.classList.add('on');
+  if (t === 'design') buildThemeGrid();
   const idx = ['plante','photo','design','logos'].indexOf(t);
   const tabs = document.querySelectorAll('.stab');
   if (tabs[idx]) tabs[idx].classList.add('active');
@@ -1324,8 +2135,129 @@ function toast(msg) {
 }
 function getElementById(id) { return document.getElementById(id); }
 
+// ═══════════════════════════════════════════════════
+//  ⚠️  CONFIGURATION SUPABASE
+//  Remplace les deux valeurs ci-dessous par les tiennes
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://ihzdojhifxepwcqtzilg.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloemRvamhpZnhlcHdjcXR6aWxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTc3MzgsImV4cCI6MjA5NDA3MzczOH0.D1LIVtIizUlkOuG4J_UexzlgB_Pzv3zQqF1f4KAKULo';
+
+// ── Initialisation Supabase ──
+const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _currentUser = null;
+
+// ── LOGIN ──
+async function doLogin() {
+  const email    = getElementById('login-email').value.trim();
+  const password = getElementById('login-password').value;
+  const errEl    = getElementById('login-error');
+  const loadEl   = getElementById('login-loading');
+  const btnEl    = getElementById('login-btn');
+
+  if (!email || !password) {
+    errEl.textContent = 'Veuillez remplir tous les champs.';
+    errEl.classList.add('show'); return;
+  }
+  errEl.classList.remove('show');
+  btnEl.disabled = true;
+  loadEl.classList.add('show');
+
+  const { data, error } = await _supa.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = 'Email ou mot de passe incorrect.';
+    errEl.classList.add('show');
+    btnEl.disabled = false;
+    loadEl.classList.remove('show');
+    return;
+  }
+  _currentUser = data.user;
+  getElementById('login-screen').style.display = 'none';
+  init();
+}
+
+// ── LOGOUT ──
+async function doLogout() {
+  if (!confirm('Se déconnecter ?')) return;
+  await _supa.auth.signOut();
+  _currentUser = null;
+  getElementById('login-screen').style.display = 'flex';
+  getElementById('login-password').value = '';
+  getElementById('login-email').value = '';
+  getElementById('login-btn').disabled = false;
+  getElementById('login-loading').classList.remove('show');
+}
+
+// ── VÉRIFIER SESSION AU DÉMARRAGE ──
+async function checkSession() {
+  const { data: { session } } = await _supa.auth.getSession();
+  if (session) {
+    _currentUser = session.user;
+    getElementById('login-screen').style.display = 'none';
+    init();
+  }
+  // Sinon : login screen reste visible
+}
+
+// ── SYNC INDICATOR ──
+function showSync(msg) {
+  const el = getElementById('sync-indicator');
+  el.textContent = msg || '🔄 Synchronisation…';
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2000);
+}
+
 // ── START ──
-init();
+checkSession();
+</script>
+
+<!-- PWA : Service Worker + Bouton Install -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').then(function(reg) {
+      reg.addEventListener('updatefound', function() {
+        const nw = reg.installing;
+        nw.addEventListener('statechange', function() {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            const b = document.createElement('div');
+            b.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#3b2d7a;color:white;padding:12px 20px;border-radius:10px;font-family:Nunito,sans-serif;font-size:.85rem;font-weight:700;z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+            b.innerHTML = '🔄 Mise à jour disponible <button onclick="location.reload()" style="background:white;color:#3b2d7a;border:none;border-radius:6px;padding:5px 12px;font-family:Nunito,sans-serif;font-weight:800;cursor:pointer">Installer</button>';
+            document.body.appendChild(b);
+          }
+        });
+      });
+    });
+  });
+}
+
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _deferredPrompt = e;
+  const btn = document.getElementById('btn-install-pwa');
+  if (btn) btn.style.display = 'flex';
+});
+window.addEventListener('appinstalled', function() {
+  const btn = document.getElementById('btn-install-pwa');
+  if (btn) btn.style.display = 'none';
+  if (typeof toast === 'function') toast('🎉 Application installée !');
+});
+function installPWA() {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  _deferredPrompt.userChoice.then(function(r) {
+    if (r.outcome === 'accepted') {
+      document.getElementById('btn-install-pwa').style.display = 'none';
+      if (typeof toast === 'function') toast('✅ App installée !');
+    }
+    _deferredPrompt = null;
+  });
+}
+
+// Raccourcis URL (?action=new ou ?action=library)
+const _p = new URLSearchParams(window.location.search);
+if (_p.get('action') === 'library') setTimeout(function(){ switchView('library'); }, 400);
+if (_p.get('action') === 'new')     setTimeout(function(){ switchView('editor'); clearForm(); }, 400);
 </script>
 </body>
 </html>
