@@ -966,19 +966,15 @@ async function fetchCloudSettings() {
   } catch(e) { console.warn('Load cloud settings error:', e); return null; }
 }
 
-let _pushSettingsTimer = null;
 function pushCloudSettings(settings) {
   if (!_currentUser) return;
-  clearTimeout(_pushSettingsTimer);
-  _pushSettingsTimer = setTimeout(async () => {
-    try {
-      await _supa.from('app_settings').upsert({
-        user_id: _currentUser.id,
-        data: settings,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
-    } catch(e) { console.warn('Save cloud settings error:', e); }
-  }, 800);
+  _supa.from('app_settings').upsert({
+    user_id: _currentUser.id,
+    data: settings,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id' }).then(function(res) {
+    if (res.error) console.warn('Save cloud settings error:', res.error);
+  });
 }
 
 // ═══════════════ INIT ═══════════════
@@ -1031,17 +1027,24 @@ function loadSettings() {
   });
 }
 
+// saveSettings() est appelée à chaque frappe/glissement de curseur (via liveUpdate()).
+// On regroupe l'écriture réelle (localStorage + Supabase) derrière un léger différé
+// pour ne pas resérialiser/renvoyer tous les réglages à chaque caractère tapé.
+let _saveSettingsTimer = null;
 function saveSettings() {
-  const g = (id) => (getElementById(id)||{}).value || '';
-  const s = {
-    logoMain:curLogoMain, logoFPA:curLogoFPA, rowCfg:rowCfg, ci:customIcons,
-    cName:g('c-name'), cType:g('c-type'), cHdr:g('c-hdr'), cCard:g('c-card'), cSep:g('c-sep'),
-    foot:g('f-foot'), sName:g('s-name'), lms:g('l-ms'), lfs:g('l-fs'),
-    font:g('f-font'), italic:(getElementById('f-italic')||{checked:true}).checked,
-    fpaPos:g('fpa-pos'), fpaOx:g('fpa-ox'), fpaOy:g('fpa-oy'),
-  };
-  LS.setSet(s);
-  pushCloudSettings(s);
+  clearTimeout(_saveSettingsTimer);
+  _saveSettingsTimer = setTimeout(function() {
+    const g = (id) => (getElementById(id)||{}).value || '';
+    const s = {
+      logoMain:curLogoMain, logoFPA:curLogoFPA, rowCfg:rowCfg, ci:customIcons,
+      cName:g('c-name'), cType:g('c-type'), cHdr:g('c-hdr'), cCard:g('c-card'), cSep:g('c-sep'),
+      foot:g('f-foot'), sName:g('s-name'), lms:g('l-ms'), lfs:g('l-fs'),
+      font:g('f-font'), italic:(getElementById('f-italic')||{checked:true}).checked,
+      fpaPos:g('fpa-pos'), fpaOx:g('fpa-ox'), fpaOy:g('fpa-oy'),
+    };
+    LS.setSet(s);
+    pushCloudSettings(s);
+  }, 300);
 }
 
 // ═══════════════ ICON HELPER ═══════════════
